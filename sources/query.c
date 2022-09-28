@@ -81,6 +81,36 @@ error:
 	return NULL;
 }
 
+
+machine_msg_t *od_query_read_auth_msg(od_server_t *server)
+{	od_instance_t *instance = server->global->instance;
+
+	machine_msg_t *ret_msg = NULL;
+	machine_msg_t *msg;
+
+	/* wait for response */
+	int has_result = 0;
+	while (1) {
+		msg = od_read(&server->io, UINT32_MAX);
+		if (msg == NULL) {
+			if (!machine_timedout()) {
+				od_error(&instance->logger, "Pass through",
+					 server->client, server,
+					 "read error: %s",
+					 od_io_error(&server->io));
+					 return NULL;
+			}
+		}else
+			return msg ; 
+		
+	}
+	return NULL;
+}
+
+
+
+
+
 __attribute__((hot)) int od_query_format(char *format_pos, char *format_end,
 					 kiwi_var_t *user, char *peer,
 					 char *output, int output_len)

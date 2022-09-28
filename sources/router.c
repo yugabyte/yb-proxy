@@ -658,10 +658,16 @@ void od_router_detach(od_router_t *router, od_client_t *client)
 	(void)router;
 	od_route_t *route = client->route;
 	assert(route != NULL);
+	od_instance_t *instance = client->global->instance;
+
+
 
 	/* detach from current machine event loop */
 	od_server_t *server = client->server;
+	
+
 	od_io_detach(&server->io);
+
 
 	od_route_lock(route);
 
@@ -681,6 +687,8 @@ void od_router_detach(od_router_t *router, od_client_t *client)
 		od_backend_close(server);
 	}
 	od_client_pool_set(&route->client_pool, client, OD_CLIENT_PENDING);
+
+
 
 	int signal = route->client_pool.count_queue > 0;
 	od_route_unlock(route);

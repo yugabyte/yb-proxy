@@ -335,6 +335,24 @@ kiwi_fe_write_prep_stmt(machine_msg_t *msg, char *query, char *param)
 	msg = kiwi_fe_write_sync(msg);
 	return msg;
 }
+KIWI_API static inline machine_msg_t *
+kiwi_fe_write_authentication(machine_msg_t *msg)
+{
+	int size = sizeof(kiwi_header_t)  ;
+
+	int offset = 0;
+	if (msg)
+		offset = machine_msg_size(msg);
+	msg = machine_msg_create_or_advance(msg, size);
+	if (kiwi_unlikely(msg == NULL))
+		return NULL;
+	char *pos;
+	pos = (char *)machine_msg_data(msg) + offset;
+
+	kiwi_write8(&pos, KIWI_FE_AUTH);
+	kiwi_write32(&pos, size - sizeof(uint8_t));
+	return msg;
+}
 
 KIWI_API static inline machine_msg_t *
 kiwi_fe_write_authentication_sasl_initial(machine_msg_t *msg, char *mechanism,
