@@ -9,6 +9,7 @@
 #include <machinarium.h>
 #include <odyssey.h>
 
+
 static inline void od_frontend_close(od_client_t *client)
 {
 	assert(client->route == NULL);
@@ -261,6 +262,8 @@ od_frontend_attach(od_client_t *client, char *context,
 		return OD_OK;
 	}
 }
+
+
 
 static inline od_frontend_status_t
 od_frontend_attach_and_deploy(od_client_t *client, char *context)

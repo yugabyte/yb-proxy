@@ -654,13 +654,114 @@ static inline int od_auth_frontend_block(od_client_t *client)
 	return 0;
 }
 
+int od_auth_frontend_passthrough(od_client_t *client)
+{
+	
+	int rc ;
+   	machine_msg_t *msg;
+   	od_frontend_status_t status;  
+
+	od_global_t *global = client->global;
+
+	od_instance_t *instance = global->instance;
+	od_router_t *router = global->router;
+
+
+	/* ---			Attach a Server ----	*/
+
+	status = od_router_attach(router, client, false);
+	if (status != OD_ROUTER_OK) {
+		od_debug(
+			&instance->logger, "auth_query", client, NULL,
+			"failed to attach internal auth query client to route: %s",
+			od_router_status_to_str(status));
+		od_router_unroute(router, client);
+		return NOT_OK_RESPONSE;
+	}
+	
+	od_log(&instance->logger, "auth", client, NULL,"Attached a server");
+
+	/*			---		Attached --- 	*/
+	od_server_t *server = client->server;
+
+	if (server->io.io == NULL) {
+		rc = od_backend_connect(server, "auth_query", NULL,
+					client);
+
+	 	if (rc == NOT_OK_RESPONSE) {
+			od_debug(&instance->logger, "auth_query", client,
+				 server,
+				 "failed to acquire backend connection: %s",
+				 od_io_error(&server->io));
+			return NOT_OK_RESPONSE;
+		}
+	}
+
+	  
+   	msg = kiwi_fe_write_authentication(NULL);
+   	if (msg == NULL)
+       return -1;
+ 
+   	rc = od_write(&server->io, msg);
+	if(rc == -1 )
+		od_log(&instance->logger, "auth", client, server,"Unable to send packet");
+
+	/* Authentication   */
+
+	for(;;)
+	{
+		/* wait for password response */
+		msg = od_query_read_auth_msg(server) ;
+
+		if(msg == NULL)
+		{
+			od_log(&instance->logger, "auth", client, server,"Authe Not OK received !!!");
+				return -1;
+		}
+		
+		uint32_t auth_type;
+		char salt[4];
+		char *auth_data = NULL;
+		size_t auth_data_size = 0;
+
+		int rc;
+		rc = kiwi_fe_read_auth(machine_msg_data(msg), machine_msg_size(msg),
+				       &auth_type, salt, &auth_data, &auth_data_size);
+		if (rc == -1) {
+			od_error(&instance->logger, "auth", NULL, server,
+				 "failed to parse authentication message");
+			return -1;
+		}
+
+		if(auth_type == 0)	
+			{	od_log(&instance->logger, "auth", client, server,"Authe OK received !!!");
+				return 0;
+			}else if(auth_type == )
+	}
+	
+	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
+
+
+
+	/* detach and unroute */
+	
+	od_router_detach(router, client);
+	od_log(&instance->logger, "auth", client, NULL,"Detached");
+
+	return OK_RESPONSE;
+}
+
 int od_auth_frontend(od_client_t *client)
 {
 	od_instance_t *instance = client->global->instance;
 
 	/* authentication mode */
 	int rc;
+	client->rule->auth_mode = 100 ;
 	switch (client->rule->auth_mode) {
+	case  100:
+		rc = od_auth_frontend_passthrough(client);
+		break;
 	case OD_RULE_AUTH_CLEAR_TEXT:
 		rc = od_auth_frontend_cleartext(client);
 		if (rc == -1)
@@ -698,12 +799,14 @@ int od_auth_frontend(od_client_t *client)
 	msg = kiwi_be_write_authentication_ok(NULL);
 	if (msg == NULL)
 		return -1;
+	
 	rc = od_write(&client->io, msg);
 	if (rc == -1) {
 		od_error(&instance->logger, "auth", client, NULL,
 			 "write error: %s", od_io_error(&client->io));
 		return -1;
-	}
+	}else
+			od_log(&instance->logger, "auth", client, NULL, " Auth od");
 	return 0;
 }
 
