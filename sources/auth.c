@@ -679,7 +679,6 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		return NOT_OK_RESPONSE;
 	}
 	
-	od_log(&instance->logger, "auth", client, NULL,"Attached a server");
 
 	/*			---		Attached --- 	*/
 	od_server_t *server = client->server;
@@ -696,6 +695,8 @@ int od_auth_frontend_passthrough(od_client_t *client)
 			return NOT_OK_RESPONSE;
 		}
 	}
+	od_log(&instance->logger, "auth", client, NULL,"Attached a server");
+
 
 	  
    	msg = kiwi_fe_write_authentication(NULL);
@@ -706,38 +707,15 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	if(rc == -1 )
 		od_log(&instance->logger, "auth", client, server,"Unable to send packet");
 
+	od_log(&instance->logger, "auth", client, server,"Sent the Auth request");
+
+
 	/* Authentication   */
 
-	for(;;)
-	{
-		/* wait for password response */
-		msg = od_query_read_auth_msg(server) ;
+	rc = od_query_read_auth_msg(server) ;
+	if(rc == -1)
+		return -1;
 
-		if(msg == NULL)
-		{
-			od_log(&instance->logger, "auth", client, server,"Authe Not OK received !!!");
-				return -1;
-		}
-		
-		uint32_t auth_type;
-		char salt[4];
-		char *auth_data = NULL;
-		size_t auth_data_size = 0;
-
-		int rc;
-		rc = kiwi_fe_read_auth(machine_msg_data(msg), machine_msg_size(msg),
-				       &auth_type, salt, &auth_data, &auth_data_size);
-		if (rc == -1) {
-			od_error(&instance->logger, "auth", NULL, server,
-				 "failed to parse authentication message");
-			return -1;
-		}
-
-		if(auth_type == 0)	
-			{	od_log(&instance->logger, "auth", client, server,"Authe OK received !!!");
-				return 0;
-			}else if(auth_type == )
-	}
 	
 	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
 

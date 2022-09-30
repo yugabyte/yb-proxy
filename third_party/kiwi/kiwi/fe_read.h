@@ -98,7 +98,10 @@ KIWI_API static inline int kiwi_fe_read_auth(char *data, uint32_t size,
 		if (auth_data_size != NULL)
 			*auth_data_size = pos_size;
 		return 0;
+	case 13:
+		return 0;
 	}
+
 	/* unsupported */
 	return -1;
 }

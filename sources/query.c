@@ -81,16 +81,20 @@ error:
 	return NULL;
 }
 
-
-machine_msg_t *od_query_read_auth_msg(od_server_t *server)
+int od_query_read_auth_msg(od_server_t *server)
 {	od_instance_t *instance = server->global->instance;
+	od_client_t *client ;
+	int rc =0 ;
+	client = server->client;
 
 	machine_msg_t *ret_msg = NULL;
 	machine_msg_t *msg;
 
 	/* wait for response */
-	int has_result = 0;
-	while (1) {
+
+	while(1)
+	{
+
 		msg = od_read(&server->io, UINT32_MAX);
 		if (msg == NULL) {
 			if (!machine_timedout()) {
@@ -98,13 +102,67 @@ machine_msg_t *od_query_read_auth_msg(od_server_t *server)
 					 server->client, server,
 					 "read error: %s",
 					 od_io_error(&server->io));
-					 return NULL;
+					 return -1;
 			}
-		}else
-			return msg ; 
+		}
+		int save_msg = 0;
+		kiwi_be_type_t type;
+		type = *(char *)machine_msg_data(msg);
+
+		od_log(&instance->logger, "Pass through", server->client, server,
+			 "%s", kiwi_be_type_to_string(type));
 		
+		uint32_t auth_type;
+
+		/* Check for the authenticationOK message	*/	
+		if(type == KIWI_BE_AUTHENTICATION){
+			char salt[4];
+			char *auth_data = NULL;
+			size_t auth_data_size = 0;
+			int rc;
+			rc = kiwi_fe_read_auth(machine_msg_data(msg), machine_msg_size(msg),
+					       &auth_type, salt, &auth_data, &auth_data_size);
+			if (rc == -1) {
+				od_error(&instance->logger, "Pass through", NULL, server,
+					 "failed to parse authentication message");
+			}else {
+				if(auth_type==0)
+				{
+					od_log(&instance->logger, "Pass through", server->client, server, "Authenticated");
+					return 0;
+				}else if(auth_type == 13) /* 13 for auth not ok */
+				{
+					od_log(&instance->logger, "Pass through", server->client, server, "Authentication Failed");
+					return -1;	
+				}
+			}
+		}
+	
+		/* Forward the message to the client */
+		
+
+		rc = od_write(&client->io , msg);
+		if(rc == NULL)
+		{
+			od_log(&instance->logger, "Pass through", server->client, server, "Unable to forward packet to Client");
+		//	return -1;
+		}
+			
+		msg = od_read(&client->io,UINT32_MAX);
+		if(msg == NULL)
+		{
+			od_log(&instance->logger, "Pass through", server->client, server, "Unable to read packet from client");
+		//	return -1;
+		}
+		od_log(&instance->logger, "Pass through from client", server->client, server,
+			 "%s", kiwi_be_type_to_string(type));
+
+		rc = od_write(&server->io, msg);
+		if(rc == -1)
+			return -1;
+	
 	}
-	return NULL;
+	return 0 ;
 }
 
 
