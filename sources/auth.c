@@ -719,12 +719,10 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	
 	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
 
-
-
 	/* detach and unroute */
 	
 	od_router_detach(router, client);
-	od_log(&instance->logger, "auth", client, NULL,"Detached");
+	od_log(&instance->logger, "auth passthrough", client, NULL,"Detached");
 
 	return OK_RESPONSE;
 }
@@ -778,13 +776,17 @@ int od_auth_frontend(od_client_t *client)
 	if (msg == NULL)
 		return -1;
 	
+	od_log(&instance->logger, "auth", client, NULL, " Auth od");
+
 	rc = od_write(&client->io, msg);
 	if (rc == -1) {
 		od_error(&instance->logger, "auth", client, NULL,
 			 "write error: %s", od_io_error(&client->io));
 		return -1;
-	}else
-			od_log(&instance->logger, "auth", client, NULL, " Auth od");
+	}
+
+	
+	
 	return 0;
 }
 

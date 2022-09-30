@@ -91,9 +91,9 @@ int od_query_read_auth_msg(od_server_t *server)
 	machine_msg_t *msg;
 
 	/* wait for response */
+while(1){
 
-	while(1)
-	{
+		od_log(&instance->logger, "Pass through", server->client, server," Waiting for the msg");
 
 		msg = od_read(&server->io, UINT32_MAX);
 		if (msg == NULL) {
@@ -139,29 +139,56 @@ int od_query_read_auth_msg(od_server_t *server)
 		}
 	
 		/* Forward the message to the client */
-		
-
-		rc = od_write(&client->io , msg);
-		if(rc == NULL)
-		{
-			od_log(&instance->logger, "Pass through", server->client, server, "Unable to forward packet to Client");
-		//	return -1;
-		}
-			
-		msg = od_read(&client->io,UINT32_MAX);
-		if(msg == NULL)
-		{
-			od_log(&instance->logger, "Pass through", server->client, server, "Unable to read packet from client");
-		//	return -1;
-		}
-		od_log(&instance->logger, "Pass through from client", server->client, server,
-			 "%s", kiwi_be_type_to_string(type));
-
-		rc = od_write(&server->io, msg);
-		if(rc == -1)
-			return -1;
 	
+	if (msg == NULL)
+		return -1;
+
+	
+	
+	rc = od_write(&client->io, msg);
+	if (rc == -1) {
+		od_error(&instance->logger, "auth passthrough", client, NULL,
+			 "write error in middleware: %s", od_io_error(&client->io));
+		return -1;
+	}else
+			od_log(&instance->logger, "auth passthrough", client, NULL, " Auth request sent");
+	
+
+
+		/* wait for password response */
+	while (1) {
+		msg = od_read(&client->io, UINT32_MAX);
+		if (msg == NULL) {
+			od_error(&instance->logger, "auth passthrough", client, NULL,
+				 "read error in middleware: %s", od_io_error(&client->io));
+			return -1;
+		}
+		kiwi_fe_type_t type = *(char *)machine_msg_data(msg);
+		od_debug(&instance->logger, "auth passthrough ", client, NULL, "%s",
+			 kiwi_fe_type_to_string(type));
+		if (type == KIWI_FE_PASSWORD_MESSAGE)
+			break;
+		machine_msg_free(msg);
 	}
+
+	rc = od_write(&server->io, msg);
+	if(rc == -1 ){
+		od_log(&instance->logger, "auth", client, server,"Unable to send packet");
+		return -1;
+	}
+	else
+		od_log(&instance->logger, "auth", client, server,"Sent the Auth request");
+
+
+
+}
+
+
+	
+
+
+
+
 	return 0 ;
 }
 
