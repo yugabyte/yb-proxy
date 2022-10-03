@@ -100,7 +100,7 @@ while(1){
 			if (!machine_timedout()) {
 				od_error(&instance->logger, "Pass through",
 					 server->client, server,
-					 "read error: %s",
+					 "read error from server: %s",
 					 od_io_error(&server->io));
 					 return -1;
 			}
@@ -173,11 +173,11 @@ while(1){
 
 	rc = od_write(&server->io, msg);
 	if(rc == -1 ){
-		od_log(&instance->logger, "auth", client, server,"Unable to send packet");
+		od_log(&instance->logger, "auth passthrough", client, server,"Unable to send packet");
 		return -1;
 	}
 	else
-		od_log(&instance->logger, "auth", client, server,"Sent the Auth request");
+		od_log(&instance->logger, "auth passthrough", client, server,"Sent the Auth request");
 
 
 

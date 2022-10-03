@@ -666,6 +666,10 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	od_instance_t *instance = global->instance;
 	od_router_t *router = global->router;
 
+	msg = kiwi_fe_write_authentication(NULL);
+   	if (msg == NULL)
+       return -1;
+
 
 	/* ---			Attach a Server ----	*/
 
@@ -699,9 +703,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 
 
 	  
-   	msg = kiwi_fe_write_authentication(NULL);
-   	if (msg == NULL)
-       return -1;
+
  
    	rc = od_write(&server->io, msg);
 	if(rc == -1 )
@@ -713,9 +715,9 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	/* Authentication   */
 
 	rc = od_query_read_auth_msg(server) ;
+
 	if(rc == -1)
 		return -1;
-
 	
 	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
 
@@ -723,6 +725,8 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	
 	od_router_detach(router, client);
 	od_log(&instance->logger, "auth passthrough", client, NULL,"Detached");
+
+
 
 	return OK_RESPONSE;
 }
@@ -737,6 +741,8 @@ int od_auth_frontend(od_client_t *client)
 	switch (client->rule->auth_mode) {
 	case  100:
 		rc = od_auth_frontend_passthrough(client);
+		if(rc == -1)
+		return -1;
 		break;
 	case OD_RULE_AUTH_CLEAR_TEXT:
 		rc = od_auth_frontend_cleartext(client);
