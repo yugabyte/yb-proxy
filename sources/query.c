@@ -136,7 +136,8 @@ while(1){
 					return -1;	
 				}
 			}
-		}
+		}else if(type == KIWI_BE_NOTICE_RESPONSE)
+		continue ;
 	
 		/* Forward the message to the client */
 	
