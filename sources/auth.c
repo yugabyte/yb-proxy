@@ -737,7 +737,7 @@ int od_auth_frontend(od_client_t *client)
 
 	/* authentication mode */
 	int rc;
-	client->rule->auth_mode = 100 ;
+	client->rule->auth_mode = 100;// OD_RULE_AUTH_NONE ;
 	switch (client->rule->auth_mode) {
 	case  100:
 		rc = od_auth_frontend_passthrough(client);
