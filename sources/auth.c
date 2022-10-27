@@ -666,10 +666,11 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	od_instance_t *instance = global->instance;
 	od_router_t *router = global->router;
 
-	msg = kiwi_fe_write_authentication(NULL);
+	od_log(&instance->logger, "auth passthrough", client, NULL,
+	"the user name is %s :: %s" , client->startup.user.name , client->startup.database.name );
+	msg = kiwi_fe_write_authentication(NULL, client->startup.user.value , client->startup.database.value );
    	if (msg == NULL)
        return -1;
-
 
 	/* ---			Attach a Server ----	*/
 
@@ -739,7 +740,7 @@ int od_auth_frontend(od_client_t *client)
 	int rc;
 	client->rule->auth_mode = 100;// OD_RULE_AUTH_NONE ;
 	switch (client->rule->auth_mode) {
-	case  100:
+	case 100:
 		rc = od_auth_frontend_passthrough(client);
 		if(rc == -1)
 		return -1;
