@@ -336,9 +336,9 @@ kiwi_fe_write_prep_stmt(machine_msg_t *msg, char *query, char *param)
 	return msg;
 }
 KIWI_API static inline machine_msg_t *
-kiwi_fe_write_authentication(machine_msg_t *msg, char* username, char *database)
+kiwi_fe_write_authentication(machine_msg_t *msg, char* username, char *database , char * peer)
 {
-	int size = sizeof(kiwi_header_t) + sizeof(char)*(strlen(username) + strlen(database) + 2) ;
+	int size = sizeof(kiwi_header_t) + sizeof(char)*(strlen(username) + strlen(database) +strlen(peer) + 3) ;
 
 	int offset = 0;
 	if (msg)
@@ -352,6 +352,7 @@ kiwi_fe_write_authentication(machine_msg_t *msg, char* username, char *database)
 	kiwi_write32(&pos, size - sizeof(uint8_t));
 	kiwi_write(&pos,username,strlen(username)+1 );	//Username
 	kiwi_write(&pos, database,strlen(database)+1 );	//database
+	kiwi_write(&pos, peer,strlen(peer)+1 );	//host
 	return msg;
 }
 

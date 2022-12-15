@@ -666,9 +666,12 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	od_instance_t *instance = global->instance;
 	od_router_t *router = global->router;
 
+	char peer[128];
+	od_getpeername(client->io.io, peer, sizeof(peer), 1, 0);
+
 	od_log(&instance->logger, "auth passthrough", client, NULL,
-	"the user name is %s :: %s" , client->startup.user.name , client->startup.database.name );
-	msg = kiwi_fe_write_authentication(NULL, client->startup.user.value , client->startup.database.value );
+	"the user name is %s :: %s:: %s" , client->startup.user.value , client->startup.database.value,peer );
+	msg = kiwi_fe_write_authentication(NULL, client->startup.user.value , client->startup.database.value,peer );
    	if (msg == NULL)
        return -1;
 
