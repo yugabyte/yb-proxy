@@ -720,17 +720,44 @@ int od_auth_frontend_passthrough(od_client_t *client)
 
 	rc = od_query_read_auth_msg(server) ;
 
-	if(rc == -1)
-		return -1;
-	
-	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
+	if(rc != -1)
+	{
+		/* GET the client_id from NOTICE PACKET */
+
+		machine_msg_free(msg);
+		msg = od_read(&server->io, UINT32_MAX);
+		if (msg == NULL) {
+			if (!machine_timedout()) {
+				od_error(&instance->logger, "Pass through",
+					 server->client, server,
+					 "No Notice regarding the passthrough received: %s",
+					 od_io_error(&server->io));
+					 return -1;
+			}
+		}
+		int save_msg = 0;
+		kiwi_fe_error_t client_id;
+		
+		if( kiwi_fe_read_error(machine_msg_data(msg), machine_msg_size(msg), &client_id) != -1)
+		{
+			strcpy(client->clientId,client_id.hint+7); 
+			od_debug(&instance->logger, "auth_query", client,
+				 server,
+				 "Received Client id--%s",
+				 client->clientId);
+		}
+
+	}
 
 	/* detach and unroute */
 	
 	od_router_detach(router, client);
 	od_log(&instance->logger, "auth passthrough", client, NULL,"Detached");
 
-
+	if(rc == -1)
+		return -1;
+	
+	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
 
 	return OK_RESPONSE;
 }

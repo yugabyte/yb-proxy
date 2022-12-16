@@ -174,6 +174,22 @@ KIWI_API static inline int kiwi_be_read_query(char *data, uint32_t size,
 	return 0;
 }
 
+
+KIWI_API static inline int kiwi_be_read_client_id(char *data, uint32_t size,
+					      char **query, uint32_t *query_len)
+{
+	kiwi_header_t *header = (kiwi_header_t *)data;
+	uint32_t len;
+	int rc = kiwi_read(&len, &data, &size);
+	if (kiwi_unlikely(rc != 0))
+		return -1;
+
+	*query = kiwi_header_data(header);
+	*query_len = len;
+	return 0;
+}
+
+
 KIWI_API static inline int
 kiwi_be_parse_opname_offset(char *data, __attribute__((unused)) int size)
 {

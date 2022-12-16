@@ -24,6 +24,7 @@ struct od_client_ctl {
 };
 
 #define OD_CLIENT_MAX_PEERLEN 128
+#define OD_CLIENT_MAX_ID_LEN 128
 
 struct od_client {
 	od_client_state_t state;
@@ -63,6 +64,8 @@ struct od_client {
 	od_global_t *global;
 	od_list_t link_pool;
 	od_list_t link;
+	
+	char clientId[OD_CLIENT_MAX_ID_LEN];
 
 	/* storage_user & storage_password provided by ldapsearch result */
 #ifdef LDAP_FOUND
