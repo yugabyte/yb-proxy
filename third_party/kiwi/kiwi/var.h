@@ -244,36 +244,27 @@ static inline int kiwi_enquote(char *src, char *dst, int dst_len)
 
 __attribute__((hot)) static inline int kiwi_vars_cas(kiwi_vars_t *client,
 						     kiwi_vars_t *server,
-						     char *query, int query_len)
+						     char *query, int query_len, char* client_id)
 {
 	int pos = 0;
 	kiwi_var_type_t type;
 	type = KIWI_VAR_CLIENT_ENCODING;
-	for (; type < KIWI_VAR_MAX; type++) {
-		kiwi_var_t *var;
-		var = kiwi_vars_of(client, type);
-		/* we do not support odyssey-to-backend compression yet */
-		if (var->type == KIWI_VAR_UNDEF ||
-		    var->type == KIWI_VAR_COMPRESSION)
-			continue;
-		kiwi_var_t *server_var;
-		server_var = kiwi_vars_of(server, type);
-		if (kiwi_var_compare(var, server_var))
-			continue;
+
+	{
+
 
 		/* SET key=quoted_value; */
-		int size = 4 + (var->name_len - 1) + 1 + 1;
-		if (query_len < size)
-			return -1;
+		
 		memcpy(query + pos, "SET ", 4);
 		pos += 4;
-		memcpy(query + pos, var->name, var->name_len - 1);
-		pos += var->name_len - 1;
+		memcpy(query + pos, "client_id", strlen("client_id"));
+		pos += strlen("client_id") ;
 		memcpy(query + pos, "=", 1);
 		pos += 1;
 		int quote_len;
+		
 		quote_len =
-			kiwi_enquote(var->value, query + pos, query_len - pos);
+			kiwi_enquote(client_id, query + pos, query_len - pos);
 		if (quote_len == -1)
 			return -1;
 		pos += quote_len;
