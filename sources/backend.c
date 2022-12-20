@@ -114,9 +114,10 @@ static inline int od_backend_startup(od_server_t *server,
 				 { route->id.user, route->id.user_len },
 				 { "database", 9 },
 				 { route->id.database, route->id.database_len },
-				 { "replication", 12 },
-				 { "yb_is_client_yb_proxy" ,22} ,
+				{ "yb_is_client_yb_proxy" ,22} ,
 				 { "1" ,2} ,
+				 { "replication", 12 },
+
 				 { NULL, 0 } };
 	int argc = 6;
 	if (route->id.physical_rep) {
