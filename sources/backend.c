@@ -115,16 +115,18 @@ static inline int od_backend_startup(od_server_t *server,
 				 { "database", 9 },
 				 { route->id.database, route->id.database_len },
 				 { "replication", 12 },
+				 { "yb_is_client_yb_proxy" ,22} ,
+				 { "1" ,2} ,
 				 { NULL, 0 } };
-	int argc = 4;
+	int argc = 6;
 	if (route->id.physical_rep) {
-		argc = 6;
-		argv[5].name = "on";
-		argv[5].len = 3;
+		argc = 8;
+		argv[7].name = "on";
+		argv[7].len = 3;
 	} else if (route->id.logical_rep) {
-		argc = 6;
-		argv[5].name = "database";
-		argv[5].len = 9;
+		argc = 8;
+		argv[7].name = "database";
+		argv[7].len = 9;
 	}
 
 	machine_msg_t *msg;
