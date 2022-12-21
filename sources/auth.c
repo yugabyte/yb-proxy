@@ -662,7 +662,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
    	od_frontend_status_t status;  
 
 	od_global_t *global = client->global;
-
+	od_route_t *route = client->route;
 	od_instance_t *instance = global->instance;
 	od_router_t *router = global->router;
 
@@ -692,7 +692,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	od_server_t *server = client->server;
 
 	if (server->io.io == NULL) {
-		rc = od_backend_connect(server, "auth_query", NULL,
+		rc = od_backend_connect(server, "auth_query", &(route->params.params),
 					client);
 
 	 	if (rc == NOT_OK_RESPONSE) {
@@ -768,12 +768,12 @@ int od_auth_frontend(od_client_t *client)
 
 	/* authentication mode */
 	int rc;
-	client->rule->auth_mode = 100;// OD_RULE_AUTH_NONE ;
+	client->rule->auth_mode = 100 ; // OD_RULE_AUTH_CLEAR_TEXT;// OD_RULE_AUTH_NONE ;
 	switch (client->rule->auth_mode) {
 	case 100:
 		rc = od_auth_frontend_passthrough(client);
 		if(rc == -1)
-		return -1;
+			return -1;
 		break;
 	case OD_RULE_AUTH_CLEAR_TEXT:
 		rc = od_auth_frontend_cleartext(client);
