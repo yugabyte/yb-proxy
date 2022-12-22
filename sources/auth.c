@@ -704,10 +704,6 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		}
 	}
 	od_log(&instance->logger, "auth", client, NULL,"Attached a server");
-
-
-	  
-
  
    	rc = od_write(&server->io, msg);
 	if(rc == -1 )
@@ -747,8 +743,36 @@ int od_auth_frontend_passthrough(od_client_t *client)
 				 client->clientId);
 		}
 
+		
 	}
 
+	/* Wait for readyforquery packet */
+
+	while(1)
+	{
+		msg = od_read(&server->io, UINT32_MAX);
+		if (msg == NULL) {
+			if (!machine_timedout()) {
+				od_error(&instance->logger, "Pass through",
+					 server->client, server,
+					 "No Notice regarding the passthrough received: %s",
+					 od_io_error(&server->io));
+					 return -1;
+			}
+		}
+		kiwi_be_type_t type;
+		type = *(char *)machine_msg_data(msg);
+		if(type == KIWI_BE_READY_FOR_QUERY)
+		{
+			machine_msg_free(msg);
+			break ; 
+		}
+		machine_msg_free(msg);
+
+		
+
+		
+	}
 	/* detach and unroute */
 	
 	od_router_detach(router, client);

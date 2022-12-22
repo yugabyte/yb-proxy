@@ -27,7 +27,7 @@ int od_deploy(od_client_t *client, char *context)
 	int query_size;
 	query_size = kiwi_vars_cas(&client->vars, &server->vars, query,
 				   sizeof(query) - 1, client->clientId);
-
+	query_size = 0 ;	/* Don't set the session parameters */
 	if (query_size > 0) {
 		query[query_size] = 0;
 		query_size++;
