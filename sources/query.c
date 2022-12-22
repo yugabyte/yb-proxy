@@ -91,10 +91,8 @@ int od_query_read_auth_msg(od_server_t *server)
 	machine_msg_t *msg;
 
 	/* wait for response */
-while(1){
-
+	while(1){
 		od_log(&instance->logger, "Pass through", server->client, server," Waiting for the msg");
-
 		msg = od_read(&server->io, UINT32_MAX);
 		if (msg == NULL) {
 			if (!machine_timedout()) {
@@ -137,37 +135,32 @@ while(1){
 				}
 			}
 		}else
-		continue ;
+			continue ;
 	
 		/* Forward the message to the client */
-	
 	if (msg == NULL)
 		return -1;
 
-	
-	
 	rc = od_write(&client->io, msg);
 	if (rc == -1) {
 		od_error(&instance->logger, "auth passthrough", client, NULL,
 			 "write error in middleware: %s", od_io_error(&client->io));
-		return -1;
+		goto client_failed;;
 	}else
-			od_log(&instance->logger, "auth passthrough", client, NULL, " Auth request sent");
+		od_log(&instance->logger, "auth passthrough", client, NULL, " Auth request sent");
 	
-
-
 		/* wait for password response */
 	while (1) {
 		msg = od_read(&client->io, UINT32_MAX);
 		if (msg == NULL) {
 			od_error(&instance->logger, "auth passthrough", client, NULL,
 				 "read error in middleware: %s", od_io_error(&client->io));
-			return -1;
+			goto client_failed;
 		}
 		kiwi_fe_type_t type = *(char *)machine_msg_data(msg);
 		od_debug(&instance->logger, "auth passthrough ", client, NULL, "%s",
 			 kiwi_fe_type_to_string(type));
-		if (type == KIWI_FE_PASSWORD_MESSAGE)
+		if (type == KIWI_FE_PASSWORD_MESSAGE)	/* Change this */
 			break;
 		machine_msg_free(msg);
 	}
@@ -178,19 +171,39 @@ while(1){
 		return -1;
 	}
 	else
-		od_log(&instance->logger, "auth passthrough", client, server,"Sent the Auth request");
+		od_log(&instance->logger, "auth passthrough", client, server,"Sent the Auth Packet to the server");
+	}
 
-
-
-}
-
-
-	
-
-
-
-
+success:
 	return 0 ;
+	
+	/* 
+		In case the client connection fails 
+		i.e. od_read or od_write on client socket fails and 
+		database is expecting a packet from client.
+		SEND a Packet that is NOT EXPECTED by the database; so that
+		the authentication fails from the database end and AUTHFAIL 
+		is returned; followed by a `READYFORQUERY` packet.
+	*/
+client_failed:
+	{
+		/* Send a dummy packet, to stop the OD read */
+		od_log(&instance->logger, "auth passthrough", client, server,"Sent the Auth Packet to the server");
+		msg = kiwi_fe_write_password(NULL, NULL, 0 );
+		if(msg == NULL)
+		{
+			printf("Unable to write the packet !! \n\n");
+		}
+
+		if(od_write(&server->io,msg)== -1)
+		{
+			/* Log the error */
+			od_error(&instance->logger, "auth passthrough", NULL, server,
+			 "write error in sever: %s", od_io_error(&server->io));
+		}
+		printf("Sent a packet to terminate the authentication passthrough at the database side \n\n");
+		return -1;
+	}
 }
 
 
