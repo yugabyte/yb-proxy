@@ -81,14 +81,27 @@ error:
 	return NULL;
 }
 
-int od_query_read_auth_msg(od_server_t *server)
-{	od_instance_t *instance = server->global->instance;
-	od_client_t *client ;
+int od_query_read_auth_msg(od_server_t *server, od_client_t *client)
+{	
+	od_instance_t *instance = server->global->instance;
 	int rc =0 ;
-	client = server->client;
-
 	machine_msg_t *ret_msg = NULL;
 	machine_msg_t *msg;
+	char peer[128];
+	od_getpeername(client->io.io, peer, sizeof(peer), 1, 0);
+	
+	msg = kiwi_fe_write_authentication(NULL,
+			client->startup.user.value , 
+			client->startup.database.value,
+			peer );
+
+   	rc = od_write(&server->io, msg);
+	if(rc == -1 )
+		{
+			od_log(&instance->logger, "auth", client, server,"Unable to send packet");
+			return -1;
+		}	
+	od_log(&instance->logger, "auth", client, server,"Sent the Auth request");
 
 	/* wait for response */
 	while(1){
@@ -204,9 +217,13 @@ client_failed:
 		printf("Sent a packet to terminate the authentication passthrough at the database side \n\n");
 		return -1;
 	}
+
+server_failed:
+	{
+	/* Do nothing as of now */	
+	}
+	
 }
-
-
 
 
 

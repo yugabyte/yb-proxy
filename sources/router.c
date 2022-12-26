@@ -535,6 +535,8 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 {
 	(void)router;
 	od_route_t *route = client->route;
+	printf("searching for server in route %x\n\n", route);
+
 	assert(route != NULL);
 
 	od_route_lock(route);
@@ -548,6 +550,7 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 	int busyloop_sleep = 0;
 	int busyloop_retry = 0;
 	for (;;) {
+		printf("Finding a server for the client \n\n");
 		server = od_pg_server_pool_next(&route->server_pool,
 						OD_SERVER_IDLE);
 		if (server)
@@ -621,6 +624,7 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 
 	od_route_unlock(route);
 
+	printf("Creating a new server  \n\n");
 	/* create new server object */
 	server = od_server_allocate(
 		route->rule->pool->reserve_prepared_statement);

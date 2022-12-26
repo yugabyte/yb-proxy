@@ -656,135 +656,118 @@ static inline int od_auth_frontend_block(od_client_t *client)
 
 int od_auth_frontend_passthrough(od_client_t *client)
 {
-	
-	int rc ;
-   	machine_msg_t *msg;
-   	od_frontend_status_t status;  
-
+	//return 0 ;
 	od_global_t *global = client->global;
-	od_route_t *route = client->route;
+	kiwi_var_t *user = &client->startup.user;
+	kiwi_password_t *password = &client->password;
 	od_instance_t *instance = global->instance;
 	od_router_t *router = global->router;
 
-	char peer[128];
-	od_getpeername(client->io.io, peer, sizeof(peer), 1, 0);
+	/* create internal auth client */
+	od_client_t *auth_client;
 
-	od_log(&instance->logger, "auth passthrough", client, NULL,
-	"the user name is %s :: %s:: %s" , client->startup.user.value , client->startup.database.value,peer );
-	msg = kiwi_fe_write_authentication(NULL, client->startup.user.value , client->startup.database.value,peer );
-   	if (msg == NULL)
-       return -1;
+	auth_client = od_client_allocate_internal(global, "auth-query");
 
-	/* ---			Attach a Server ----	*/
-
-	status = od_router_attach(router, client, false);
-	if (status != OD_ROUTER_OK) {
-		od_debug(
-			&instance->logger, "auth_query", client, NULL,
-			"failed to attach internal auth query client to route: %s",
-			od_router_status_to_str(status));
-		od_router_unroute(router, client);
+	if (auth_client == NULL) {
+		od_debug(&instance->logger, "auth_query", auth_client, NULL,
+			 "failed to allocate internal auth query client");
 		return NOT_OK_RESPONSE;
 	}
-	
 
-	/*			---		Attached --- 	*/
-	od_server_t *server = client->server;
+	/* set auth query route user and database */
+	kiwi_var_set(&auth_client->startup.user, KIWI_VAR_UNDEF,
+		    "postgres",  9);
 
+	kiwi_var_set(&auth_client->startup.database, KIWI_VAR_UNDEF,
+		     "postgres", 9);
+
+	/* route */
+	od_router_status_t status;
+	status = od_router_route(router, auth_client);
+	if (status != OD_ROUTER_OK) {
+		od_debug(&instance->logger, "auth_query", auth_client, NULL,
+			 "failed to route internal auth query client: %s",
+			 od_router_status_to_str(status));
+		od_client_free(auth_client);
+		return NOT_OK_RESPONSE;
+	}
+
+	/* attach */
+	status = od_router_attach(router, auth_client, false);
+	if (status != OD_ROUTER_OK) {
+		od_debug(
+			&instance->logger, "auth_query", auth_client, NULL,
+			"failed to attach internal auth query client to route: %s",
+			od_router_status_to_str(status));
+		od_router_unroute(router, auth_client);
+		od_client_free(auth_client);
+		return NOT_OK_RESPONSE;
+	}
+	od_server_t *server;
+	server = auth_client->server;
+
+	od_debug(&instance->logger, "auth_query", auth_client, server,
+		 "attached to server %s%.*s", server->id.id_prefix,
+		 (int)sizeof(server->id.id), server->id.id);
+
+	/* connect to server, if necessary */
+	int rc;
 	if (server->io.io == NULL) {
-		rc = od_backend_connect(server, "auth_query", &(route->params.params),
-					client);
-
-	 	if (rc == NOT_OK_RESPONSE) {
-			od_debug(&instance->logger, "auth_query", client,
+		rc = od_backend_connect(server, "auth_query", NULL,
+					auth_client);
+		if (rc == NOT_OK_RESPONSE) {
+			od_debug(&instance->logger, "auth_query", auth_client,
 				 server,
 				 "failed to acquire backend connection: %s",
 				 od_io_error(&server->io));
+			od_router_close(router, auth_client);
+			od_router_unroute(router, auth_client);
+			od_client_free(auth_client);
 			return NOT_OK_RESPONSE;
 		}
 	}
-	od_log(&instance->logger, "auth", client, NULL,"Attached a server");
- 
-   	rc = od_write(&server->io, msg);
-	if(rc == -1 )
-		od_log(&instance->logger, "auth", client, server,"Unable to send packet");
 
-	od_log(&instance->logger, "auth", client, server,"Sent the Auth request");
+	rc = od_query_read_auth_msg(server, client);
 
-
-	/* Authentication   */
-
-	rc = od_query_read_auth_msg(server) ;
-
-	if(rc != -1)
+	/* server clean up */
+	while(1)
 	{
-		/* GET the client_id from NOTICE PACKET */
-
-		machine_msg_free(msg);
+		machine_msg_t *msg;
+		
 		msg = od_read(&server->io, UINT32_MAX);
 		if (msg == NULL) {
 			if (!machine_timedout()) {
 				od_error(&instance->logger, "Pass through",
 					 server->client, server,
-					 "No Notice regarding the passthrough received: %s",
+					 "read error from server: %s",
 					 od_io_error(&server->io));
 					 return -1;
 			}
 		}
 		int save_msg = 0;
-		kiwi_fe_error_t client_id;
-		
-		if( kiwi_fe_read_error(machine_msg_data(msg), machine_msg_size(msg), &client_id) != -1)
-		{
-			strcpy(client->clientId,client_id.hint+7); 
-			od_debug(&instance->logger, "auth_query", client,
-				 server,
-				 "Received Client id--%s",
-				 client->clientId);
-		}
-
-		
-	}
-
-	/* Wait for readyforquery packet */
-
-	while(1)
-	{
-		msg = od_read(&server->io, UINT32_MAX);
-		if (msg == NULL) {
-			if (!machine_timedout()) {
-				od_error(&instance->logger, "Pass through",
-					 server->client, server,
-					 "No Notice regarding the passthrough received: %s",
-					 od_io_error(&server->io));
-					 return -1;
-			}
-		}
 		kiwi_be_type_t type;
 		type = *(char *)machine_msg_data(msg);
+
+		od_log(&instance->logger, "Pass through", server->client, server,
+			 "%s", kiwi_be_type_to_string(type));
+		
+
+		/* Check for the authenticationOK message	*/	
 		if(type == KIWI_BE_READY_FOR_QUERY)
-		{
-			machine_msg_free(msg);
-			break ; 
-		}
-		machine_msg_free(msg);
-
-		
-
-		
+			break;
 	}
-	/* detach and unroute */
-	
-	od_router_detach(router, client);
-	od_log(&instance->logger, "auth passthrough", client, NULL,"Detached");
 
+	/* detach and unroute */
+	od_router_detach(router, auth_client);
+	od_router_unroute(router, auth_client);
+	od_client_free(auth_client);
+	
 	if(rc == -1)
 		return -1;
-	
-	od_log(&instance->logger, "auth", client, server,"Authenticated using PassThrough");
-
+		
 	return OK_RESPONSE;
 }
+
 
 int od_auth_frontend(od_client_t *client)
 {
