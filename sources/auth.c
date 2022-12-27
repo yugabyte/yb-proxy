@@ -674,6 +674,11 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		return NOT_OK_RESPONSE;
 	}
 
+	/* Objective is to seperate the pool that is going to be used by backend from 
+		that of the user application 
+		The auth client and database is thus choosen `postgres`; 
+		later on a seperate super user will be provided */ 
+
 	/* set auth query route user and database */
 	kiwi_var_set(&auth_client->startup.user, KIWI_VAR_UNDEF,
 		    "postgres",  9);
@@ -728,7 +733,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	}
 
 	rc = od_query_read_auth_msg(server, client);
-
+	int auth_ok= rc ;
 	/* server clean up */
 	while(1)
 	{
@@ -755,6 +760,22 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		/* Check for the authenticationOK message	*/	
 		if(type == KIWI_BE_READY_FOR_QUERY)
 			break;
+		else if(type == KIWI_BE_ERROR_RESPONSE && auth_ok == 0 )
+		{
+			/* Check for the Hint i.e. client_id */
+			od_backend_error(server, "auth_passthrough" , machine_msg_data(msg),machine_msg_size(msg));
+				kiwi_fe_error_t error;
+
+			int rc;
+			rc = kiwi_fe_read_error(machine_msg_data(msg), machine_msg_size(msg), &error);
+			if (rc == -1) 
+			{
+				od_error(&instance->logger,"auth_passthrough"  , client , server,
+					 "failed to parse error message from server");	
+				
+			}else 
+				strcpy(client->clientId,error.hint + 7 );	/* Todo:: Put a check for whether or not it is a set client_id  */
+		}
 	}
 
 	/* detach and unroute */
@@ -764,7 +785,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	
 	if(rc == -1)
 		return -1;
-		
+
 	return OK_RESPONSE;
 }
 
