@@ -656,7 +656,6 @@ static inline int od_auth_frontend_block(od_client_t *client)
 
 int od_auth_frontend_passthrough(od_client_t *client)
 {
-	//return 0 ;
 	od_global_t *global = client->global;
 	kiwi_var_t *user = &client->startup.user;
 	kiwi_password_t *password = &client->password;
@@ -732,7 +731,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		}
 	}
 
-	rc = od_query_read_auth_msg(server, client);
+	rc = yb_query_passthrough(server, client);
 	int auth_ok= rc ;
 	/* server clean up */
 	while(1)
@@ -760,7 +759,9 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		/* Check for the authenticationOK message	*/	
 		if(type == KIWI_BE_READY_FOR_QUERY)
 			break;
-		else if(type == KIWI_BE_ERROR_RESPONSE && auth_ok == 0 )
+		else if(type == KIWI_BE_ERROR_RESPONSE && 
+				auth_ok == 0 && 
+				client->clientId == NULL )
 		{
 			/* Check for the Hint i.e. client_id */
 			od_backend_error(server, "auth_passthrough" , machine_msg_data(msg),machine_msg_size(msg));

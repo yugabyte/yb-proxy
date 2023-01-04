@@ -81,7 +81,7 @@ error:
 	return NULL;
 }
 
-int od_query_read_auth_msg(od_server_t *server, od_client_t *client)
+int yb_query_passthrough(od_server_t *server, od_client_t *client)
 {	
 	od_instance_t *instance = server->global->instance;
 	int rc =0 ;
@@ -97,10 +97,11 @@ int od_query_read_auth_msg(od_server_t *server, od_client_t *client)
 
    	rc = od_write(&server->io, msg);
 	if(rc == -1 )
-		{
-			od_log(&instance->logger, "auth", client, server,"Unable to send packet");
-			return -1;
-		}	
+	{
+		od_log(&instance->logger, "auth", client, server,"Unable to send packet");
+		return -1;
+	}	
+	
 	od_log(&instance->logger, "auth", client, server,"Sent the Auth request");
 
 	/* wait for response */
@@ -144,11 +145,27 @@ int od_query_read_auth_msg(od_server_t *server, od_client_t *client)
 				}else if(auth_type == 13) /* 13 for auth not ok */
 				{
 					od_log(&instance->logger, "Pass through", server->client, server, "Authentication Failed");
+					msg = od_read(&server->io, UINT32_MAX);
+					if (msg == NULL) {
+						if (!machine_timedout()) {
+							od_error(&instance->logger, "Pass through",
+								 server->client, server,
+								 "read error from server: %s",
+								 od_io_error(&server->io));
+								 return -1;
+						}
+					}
+
+					// if( *(char *)machine_msg_data(msg) == KIWI_BE_ERROR_RESPONSE)
+					//  	*(char *)machine_msg_data(msg) = '';	
+					/* Forward the error */
+					rc = od_write(&client->io, msg);
+
 					return -1;	
 				}
 			}
-		}else
-			continue ;
+		}else 
+			continue;
 	
 		/* Forward the message to the client */
 	if (msg == NULL)
