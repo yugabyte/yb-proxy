@@ -531,12 +531,10 @@ bool od_should_not_spun_connection_yet(int connections_in_pool, int pool_size,
 #define MAX_BUZYLOOP_RETRY 10
 
 od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
-				    bool wait_for_idle)
+				    bool wait_for_idle, od_client_t *real_client)
 {
 	(void)router;
 	od_route_t *route = client->route;
-	printf("searching for server in route %x\n\n", route);
-
 	assert(route != NULL);
 
 	od_route_lock(route);
@@ -550,7 +548,6 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 	int busyloop_sleep = 0;
 	int busyloop_retry = 0;
 	for (;;) {
-		printf("Finding a server for the client \n\n");
 		server = od_pg_server_pool_next(&route->server_pool,
 						OD_SERVER_IDLE);
 		if (server)
@@ -599,10 +596,10 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 		 * for an available server
 		 */
 		restart_read =
-			restart_read || (bool)od_io_read_active(&client->io);
+			restart_read || (bool)od_io_read_active( (real_client == NULL ) ? (&client->io) : (&real_client->io) );
 		od_route_unlock(route);
 
-		int rc = od_io_read_stop(&client->io);
+		int rc = od_io_read_stop((real_client == NULL ) ? (&client->io) : (&real_client->io));
 		if (rc == -1)
 			return OD_ROUTER_ERROR;
 
@@ -624,7 +621,6 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 
 	od_route_unlock(route);
 
-	printf("Creating a new server  \n\n");
 	/* create new server object */
 	server = od_server_allocate(
 		route->rule->pool->reserve_prepared_statement);
@@ -654,7 +650,7 @@ attach:
 
 	/* maybe restore read events subscription */
 	if (restart_read)
-		od_io_read_start(&client->io);
+		od_io_read_start((real_client == NULL ) ? (&client->io) : (&real_client->io));
 
 	return OD_ROUTER_OK;
 }

@@ -205,7 +205,7 @@ od_frontend_attach(od_client_t *client, char *context,
 	bool wait_for_idle = false;
 	for (;;) {
 		od_router_status_t status;
-		status = od_router_attach(router, client, wait_for_idle);
+		status = od_router_attach(router, client, wait_for_idle, NULL);
 		if (status != OD_ROUTER_OK) {
 			if (status == OD_ROUTER_ERROR_TIMEDOUT) {
 				od_error(&instance->logger, "router", client,

@@ -697,7 +697,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 	}
 
 	/* attach */
-	status = od_router_attach(router, auth_client, false);
+	status = od_router_attach(router, auth_client, false,client);
 	if (status != OD_ROUTER_OK) {
 		od_debug(
 			&instance->logger, "auth_query", auth_client, NULL,
