@@ -761,7 +761,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 			break;
 		else if(type == KIWI_BE_ERROR_RESPONSE && 
 				auth_ok == 0 && 
-				client->clientId == NULL )
+				strcmp(client->clientId,"")==0 )
 		{
 			/* Check for the Hint i.e. client_id */
 			od_backend_error(server, "auth_passthrough" , machine_msg_data(msg),machine_msg_size(msg));

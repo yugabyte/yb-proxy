@@ -104,6 +104,7 @@ static inline void od_client_init(od_client_t *client)
 	client->time_setup = 0;
 	client->notify_io = NULL;
 	client->ctl.op = OD_CLIENT_OP_NONE;
+	strcpy(client->clientId,"");
 #ifdef LDAP_FOUND
 	client->ldap_storage_username = NULL;
 	client->ldap_storage_username_len = 0;
