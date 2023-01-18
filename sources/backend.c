@@ -18,6 +18,7 @@ void od_backend_close(od_server_t *server)
 	assert(server->io.io == NULL);
 	assert(server->tls == NULL);
 	server->is_transaction = 0;
+	server->yb_sticky_connection = false;
 	server->idle_time = 0;
 	kiwi_key_init(&server->key);
 	kiwi_key_init(&server->key_client);
@@ -90,7 +91,15 @@ int od_backend_ready(od_server_t *server, char *data, uint32_t size)
 	rc = kiwi_fe_read_ready(data, size, &status);
 	if (rc == -1)
 		return -1;
-	if (status == 'I') {
+
+	if(status == 'i'){
+		server->yb_sticky_connection = true;
+		*kiwi_header_data(data) = 'I';
+	}
+	else if(status == 'I')
+		server->yb_sticky_connection = false;
+
+	if (status == 'I' || status == 'i') {
 		/* no active transaction */
 		server->is_transaction = 0;
 	} else if (status == 'T' || status == 'E') {

@@ -66,6 +66,7 @@ struct od_client {
 	od_list_t link;
 	
 	char clientId[OD_CLIENT_MAX_ID_LEN];
+	bool is_sticky;
 
 	/* storage_user & storage_password provided by ldapsearch result */
 #ifdef LDAP_FOUND
@@ -105,6 +106,7 @@ static inline void od_client_init(od_client_t *client)
 	client->notify_io = NULL;
 	client->ctl.op = OD_CLIENT_OP_NONE;
 	strcpy(client->clientId,"");
+	client->is_sticky = false;
 #ifdef LDAP_FOUND
 	client->ldap_storage_username = NULL;
 	client->ldap_storage_username_len = 0;

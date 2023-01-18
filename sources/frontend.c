@@ -809,7 +809,12 @@ static od_frontend_status_t od_frontend_remote_server(od_relay_t *relay,
 				return OD_DETACH;
 			case OD_RULE_POOL_TRANSACTION:
 				if (!server->is_transaction) {
-					return OD_DETACH;
+					/* Check for stickiness */
+					if(server->yb_sticky_connection)
+					{
+						printf("Got sticky connection \n\n\n");
+					}else
+						return OD_DETACH;
 				}
 				break;
 			case OD_RULE_POOL_SESSION:
