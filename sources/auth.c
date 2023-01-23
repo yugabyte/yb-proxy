@@ -752,7 +752,7 @@ int od_auth_frontend_passthrough(od_client_t *client)
 		kiwi_be_type_t type;
 		type = *(char *)machine_msg_data(msg);
 
-		od_log(&instance->logger, "Pass through", server->client, server,
+		od_debug(&instance->logger, "Pass through", server->client, server,
 			 "%s", kiwi_be_type_to_string(type));
 		
 
@@ -842,8 +842,6 @@ int od_auth_frontend(od_client_t *client)
 	if (msg == NULL)
 		return -1;
 	
-	od_log(&instance->logger, "auth", client, NULL, " Auth od");
-
 	rc = od_write(&client->io, msg);
 	if (rc == -1) {
 		od_error(&instance->logger, "auth", client, NULL,

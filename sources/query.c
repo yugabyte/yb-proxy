@@ -106,7 +106,7 @@ int yb_query_passthrough(od_server_t *server, od_client_t *client)
 
 	/* wait for response */
 	while(1){
-		od_log(&instance->logger, "Pass through", server->client, server," Waiting for the msg");
+		od_debug(&instance->logger, "Pass through", server->client, server," Waiting for the msg");
 		msg = od_read(&server->io, UINT32_MAX);
 		if (msg == NULL) {
 			if (!machine_timedout()) {
@@ -121,7 +121,7 @@ int yb_query_passthrough(od_server_t *server, od_client_t *client)
 		kiwi_be_type_t type;
 		type = *(char *)machine_msg_data(msg);
 
-		od_log(&instance->logger, "Pass through", server->client, server,
+		od_debug(&instance->logger, "Pass through", server->client, server,
 			 "%s", kiwi_be_type_to_string(type));
 		
 		uint32_t auth_type;
@@ -140,11 +140,11 @@ int yb_query_passthrough(od_server_t *server, od_client_t *client)
 			}else {
 				if(auth_type==0)
 				{
-					od_log(&instance->logger, "Pass through", server->client, server, "Authenticated");
+					od_debug(&instance->logger, "Pass through", server->client, server, "Authenticated");
 					return 0;
 				}else if(auth_type == 13) /* 13 for auth not ok */
 				{
-					od_log(&instance->logger, "Pass through", server->client, server, "Authentication Failed");
+					od_debug(&instance->logger, "Pass through", server->client, server, "Authentication Failed");
 					msg = od_read(&server->io, UINT32_MAX);
 					if (msg == NULL) {
 						if (!machine_timedout()) {
