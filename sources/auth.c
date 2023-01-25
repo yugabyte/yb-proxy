@@ -654,13 +654,156 @@ static inline int od_auth_frontend_block(od_client_t *client)
 	return 0;
 }
 
+int od_auth_frontend_passthrough(od_client_t *client)
+{
+	od_global_t *global = client->global;
+	kiwi_var_t *user = &client->startup.user;
+	kiwi_password_t *password = &client->password;
+	od_instance_t *instance = global->instance;
+	od_router_t *router = global->router;
+
+	/* create internal auth client */
+	od_client_t *auth_client;
+
+	auth_client = od_client_allocate_internal(global, "auth-query");
+
+	if (auth_client == NULL) {
+		od_debug(&instance->logger, "auth_query", auth_client, NULL,
+			 "failed to allocate internal auth query client");
+		return NOT_OK_RESPONSE;
+	}
+
+	/* Objective is to seperate the pool that is going to be used by backend from 
+		that of the user application 
+		The auth client and database is thus choosen `postgres`; 
+		later on a seperate super user will be provided */ 
+
+	/* set auth query route user and database */
+	kiwi_var_set(&auth_client->startup.user, KIWI_VAR_UNDEF,
+		    "postgres",  9);
+
+	kiwi_var_set(&auth_client->startup.database, KIWI_VAR_UNDEF,
+		     "postgres", 9);
+
+	/* route */
+	od_router_status_t status;
+	status = od_router_route(router, auth_client);
+	if (status != OD_ROUTER_OK) {
+		od_debug(&instance->logger, "auth_query", auth_client, NULL,
+			 "failed to route internal auth query client: %s",
+			 od_router_status_to_str(status));
+		od_client_free(auth_client);
+		return NOT_OK_RESPONSE;
+	}
+
+	/* attach */
+	status = od_router_attach(router, auth_client, false,client);
+	if (status != OD_ROUTER_OK) {
+		od_debug(
+			&instance->logger, "auth_query", auth_client, NULL,
+			"failed to attach internal auth query client to route: %s",
+			od_router_status_to_str(status));
+		od_router_unroute(router, auth_client);
+		od_client_free(auth_client);
+		return NOT_OK_RESPONSE;
+	}
+	od_server_t *server;
+	server = auth_client->server;
+
+	od_debug(&instance->logger, "auth_query", auth_client, server,
+		 "attached to server %s%.*s", server->id.id_prefix,
+		 (int)sizeof(server->id.id), server->id.id);
+
+	/* connect to server, if necessary */
+	int rc;
+	if (server->io.io == NULL) {
+		rc = od_backend_connect(server, "auth_query", NULL,
+					auth_client);
+		if (rc == NOT_OK_RESPONSE) {
+			od_debug(&instance->logger, "auth_query", auth_client,
+				 server,
+				 "failed to acquire backend connection: %s",
+				 od_io_error(&server->io));
+			od_router_close(router, auth_client);
+			od_router_unroute(router, auth_client);
+			od_client_free(auth_client);
+			return NOT_OK_RESPONSE;
+		}
+	}
+
+	rc = yb_query_passthrough(server, client);
+	int auth_ok= rc ;
+	/* server clean up */
+	while(1)
+	{
+		machine_msg_t *msg;
+		
+		msg = od_read(&server->io, UINT32_MAX);
+		if (msg == NULL) {
+			if (!machine_timedout()) {
+				od_error(&instance->logger, "Pass through",
+					 server->client, server,
+					 "read error from server: %s",
+					 od_io_error(&server->io));
+					 return -1;
+			}
+		}
+		int save_msg = 0;
+		kiwi_be_type_t type;
+		type = *(char *)machine_msg_data(msg);
+
+		od_debug(&instance->logger, "Pass through", server->client, server,
+			 "%s", kiwi_be_type_to_string(type));
+		
+
+		/* Check for the authenticationOK message	*/	
+		if(type == KIWI_BE_READY_FOR_QUERY)
+			break;
+		else if(type == KIWI_BE_ERROR_RESPONSE && 
+				auth_ok == 0 && 
+				strcmp(client->clientId,"")==0 )
+		{
+			/* Check for the Hint i.e. client_id */
+			od_backend_error(server, "auth_passthrough" , machine_msg_data(msg),machine_msg_size(msg));
+				kiwi_fe_error_t error;
+
+			int rc;
+			rc = kiwi_fe_read_error(machine_msg_data(msg), machine_msg_size(msg), &error);
+			if (rc == -1) 
+			{
+				od_error(&instance->logger,"auth_passthrough"  , client , server,
+					 "failed to parse error message from server");	
+				
+			}else 
+				strcpy(client->clientId,error.hint + 7 );	/* Todo:: Put a check for whether or not it is a set client_id  */
+		}
+	}
+
+	/* detach and unroute */
+	od_router_detach(router, auth_client);
+	od_router_unroute(router, auth_client);
+	od_client_free(auth_client);
+	
+	if(rc == -1)
+		return -1;
+
+	return OK_RESPONSE;
+}
+
+
 int od_auth_frontend(od_client_t *client)
 {
 	od_instance_t *instance = client->global->instance;
 
 	/* authentication mode */
 	int rc;
+	client->rule->auth_mode = 100 ; // OD_RULE_AUTH_CLEAR_TEXT;// OD_RULE_AUTH_NONE ;
 	switch (client->rule->auth_mode) {
+	case 100:
+		rc = od_auth_frontend_passthrough(client);
+		if(rc == -1)
+			return -1;
+		break;
 	case OD_RULE_AUTH_CLEAR_TEXT:
 		rc = od_auth_frontend_cleartext(client);
 		if (rc == -1)
@@ -698,12 +841,19 @@ int od_auth_frontend(od_client_t *client)
 	msg = kiwi_be_write_authentication_ok(NULL);
 	if (msg == NULL)
 		return -1;
+	
 	rc = od_write(&client->io, msg);
 	if (rc == -1) {
 		od_error(&instance->logger, "auth", client, NULL,
 			 "write error: %s", od_io_error(&client->io));
 		return -1;
 	}
+
+	
+	
+
+	
+	
 	return 0;
 }
 

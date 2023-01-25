@@ -9,6 +9,7 @@
 #include <machinarium.h>
 #include <odyssey.h>
 
+
 static inline void od_frontend_close(od_client_t *client)
 {
 	assert(client->route == NULL);
@@ -204,7 +205,7 @@ od_frontend_attach(od_client_t *client, char *context,
 	bool wait_for_idle = false;
 	for (;;) {
 		od_router_status_t status;
-		status = od_router_attach(router, client, wait_for_idle);
+		status = od_router_attach(router, client, wait_for_idle, NULL);
 		if (status != OD_ROUTER_OK) {
 			if (status == OD_ROUTER_ERROR_TIMEDOUT) {
 				od_error(&instance->logger, "router", client,
@@ -261,6 +262,8 @@ od_frontend_attach(od_client_t *client, char *context,
 		return OD_OK;
 	}
 }
+
+
 
 static inline od_frontend_status_t
 od_frontend_attach_and_deploy(od_client_t *client, char *context)
@@ -806,7 +809,12 @@ static od_frontend_status_t od_frontend_remote_server(od_relay_t *relay,
 				return OD_DETACH;
 			case OD_RULE_POOL_TRANSACTION:
 				if (!server->is_transaction) {
-					return OD_DETACH;
+					/* Check for stickiness */
+					if(server->yb_sticky_connection)
+					{
+						printf("Got sticky connection \n\n\n");
+					}else
+						return OD_DETACH;
 				}
 				break;
 			case OD_RULE_POOL_SESSION:

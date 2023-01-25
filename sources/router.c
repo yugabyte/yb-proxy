@@ -531,7 +531,7 @@ bool od_should_not_spun_connection_yet(int connections_in_pool, int pool_size,
 #define MAX_BUZYLOOP_RETRY 10
 
 od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
-				    bool wait_for_idle)
+				    bool wait_for_idle, od_client_t *real_client)
 {
 	(void)router;
 	od_route_t *route = client->route;
@@ -596,10 +596,10 @@ od_router_status_t od_router_attach(od_router_t *router, od_client_t *client,
 		 * for an available server
 		 */
 		restart_read =
-			restart_read || (bool)od_io_read_active(&client->io);
+			restart_read || (bool)od_io_read_active( (real_client == NULL ) ? (&client->io) : (&real_client->io) );
 		od_route_unlock(route);
 
-		int rc = od_io_read_stop(&client->io);
+		int rc = od_io_read_stop((real_client == NULL ) ? (&client->io) : (&real_client->io));
 		if (rc == -1)
 			return OD_ROUTER_ERROR;
 
@@ -650,7 +650,7 @@ attach:
 
 	/* maybe restore read events subscription */
 	if (restart_read)
-		od_io_read_start(&client->io);
+		od_io_read_start((real_client == NULL ) ? (&client->io) : (&real_client->io));
 
 	return OD_ROUTER_OK;
 }
@@ -660,10 +660,16 @@ void od_router_detach(od_router_t *router, od_client_t *client)
 	(void)router;
 	od_route_t *route = client->route;
 	assert(route != NULL);
+	od_instance_t *instance = client->global->instance;
+
+
 
 	/* detach from current machine event loop */
 	od_server_t *server = client->server;
+	
+
 	od_io_detach(&server->io);
+
 
 	od_route_lock(route);
 
@@ -683,6 +689,8 @@ void od_router_detach(od_router_t *router, od_client_t *client)
 		od_backend_close(server);
 	}
 	od_client_pool_set(&route->client_pool, client, OD_CLIENT_PENDING);
+
+
 
 	int signal = route->client_pool.count_queue > 0;
 	od_route_unlock(route);
